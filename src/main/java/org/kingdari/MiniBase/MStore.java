@@ -130,6 +130,7 @@ public class MStore implements MiniBase{
 
 		this.compactor = new DefaultCompactor(diskStore);
 		this.compactor.start();
+		LOG.info("MiniBase open successfully");
 		return this;
 	}
 

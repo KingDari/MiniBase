@@ -435,7 +435,8 @@ public class DiskFile implements Closeable {
 		byte[] buffer = new byte[(int) meta.getBlockSize()];
 		synchronized (this) {
 			in.seek(meta.getBlockOffset());
-			assert in.read(buffer) == buffer.length;
+			int len = in.read(buffer);
+			assert len == buffer.length;
 		}
 		return BlockReader.parseFrom(buffer, 0, buffer.length);
 	}
@@ -457,28 +458,34 @@ public class DiskFile implements Closeable {
 		in.seek(fileSize - TRAILER_SIZE);
 
 		byte[] buffer = new byte[8];
-		assert in.read(buffer) == buffer.length;
+		int len = in.read(buffer);
+		assert len == buffer.length;
 		assert this.fileSize == ByteUtils.toLong(buffer);
 
 		buffer = new byte[4];
-		assert in.read(buffer) == buffer.length;
+		len = in.read(buffer);
+		assert len == buffer.length;
 		this.blockCount = ByteUtils.toInt(buffer);
 
 		buffer = new byte[8];
-		assert in.read(buffer) == buffer.length;
+		len = in.read(buffer);
+		assert len == buffer.length;
 		this.blockIndexOffset = ByteUtils.toLong(buffer);
 
 		buffer = new byte[8];
-		assert in.read(buffer) == buffer.length;
+		len = in.read(buffer);
+		assert len == buffer.length;
 		this.blockIndexSize = ByteUtils.toLong(buffer);
 
 		buffer = new byte[8];
-		assert in.read(buffer) == buffer.length;
+		len = in.read(buffer);
+		assert len == buffer.length;
 		assert DISK_FILE_MAGIC == ByteUtils.toLong(buffer);
 
 		buffer = new byte[(int) blockIndexSize];
 		in.seek(blockIndexOffset);
-		assert in.read(buffer) == blockIndexSize;
+		len = in.read(buffer);
+		assert len == buffer.length;
 
 		int offset = 0;
 
