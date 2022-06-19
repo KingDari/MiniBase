@@ -145,6 +145,10 @@ public class MStore implements MiniBase{
 		return null;
 	}
 
+	private KeyValue bfGet(byte[] key) throws IOException {
+		return null;
+	}
+
 	@Override
 	public void put(byte[] key, byte[] value) throws IOException {
 		memStore.add(KeyValue.createPut(key, value, sequenceId.incrementAndGet()));

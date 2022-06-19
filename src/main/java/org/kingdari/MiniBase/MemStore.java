@@ -11,6 +11,7 @@ import java.util.Iterator;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -113,9 +114,9 @@ public class MemStore implements Closeable {
 	private volatile ConcurrentSkipListMap<KeyValue, KeyValue> kvImmutableMap;
 
 	/**
+	 * guard dataSize(only rw, rr guarded by CAS), kvMap, kvSnapshot
 	 * rlock: writing to memory
 	 * wlock: flushing memory
-	 * guard dataSize(only rw, rr guarded by CAS), kvMap, kvSnapshot
 	 */
 	private final ReentrantReadWriteLock updateLock = new ReentrantReadWriteLock();
 	private final AtomicBoolean isImmutableMapFlushing = new AtomicBoolean();
@@ -200,5 +201,17 @@ public class MemStore implements Closeable {
 
 	@Override
 	public void close() throws IOException {
+		pool.shutdown();
+		try {
+			LOG.info("MemStore is waiting for flushing thread...");
+			if (!pool.awaitTermination(60, TimeUnit.SECONDS)) {
+				pool.shutdownNow();
+				LOG.error("Timeout.");
+			}
+		} catch (InterruptedException e) {
+			pool.shutdownNow();
+			Thread.currentThread().interrupt();
+		}
+		LOG.info("MemStore exited.");
 	}
 }

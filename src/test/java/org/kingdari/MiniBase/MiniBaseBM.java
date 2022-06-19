@@ -63,7 +63,8 @@ public class MiniBaseBM {
 	}
 
 	@TearDown
-	public void finalize() {
+	public void finalize() throws IOException {
+		db.close();
 		File f = new File(dataDir);
 		for (File file : f.listFiles()) {
 			file.delete();

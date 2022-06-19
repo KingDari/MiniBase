@@ -141,12 +141,14 @@ public class DiskStore implements Closeable {
 		@Override
 		public void stopRunning() {
 			running = false;
+			LOG.info("Compactor try to stop running...");
 			try {
 				diskStore.tryClearCompactedDiskFiles();
 				join();
 			} catch (InterruptedException | IOException e) {
 				e.printStackTrace();
 			}
+			LOG.info("Compactor exited.");
 		}
 	}
 
@@ -277,6 +279,7 @@ public class DiskStore implements Closeable {
 	@Override
 	public void close() throws IOException {
 		IOException closedException = null;
+		LOG.info("DiskStore try to close disk files...");
 		diskFilesLock.readLock().lock();
 		try {
 			for (DiskFile df : diskFiles) {
@@ -304,6 +307,7 @@ public class DiskStore implements Closeable {
 		if (closedException != null) {
 			throw closedException;
 		}
+		LOG.info("DiskStore exited.");
 	}
 
 	public long nextDiskFileId() {

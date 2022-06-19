@@ -172,6 +172,7 @@ public class MiniBaseTest {
 		Assertions.assertArrayEquals(db.get(A).getValue(), B);
 		Assertions.assertNull(db.get(B));
 		Assertions.assertArrayEquals(db.get(C).getValue(), C);
+		db.close();
 	}
 
 	@Test
