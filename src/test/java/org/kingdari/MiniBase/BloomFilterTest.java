@@ -35,8 +35,8 @@ public class BloomFilterTest {
 			}
 		}
 
-		System.out.printf(
+		LOG.info(String.format(
 				"the probability of incorrect classify is %.2g\n",
-				((double) incorrectClassifyCount) / maxClassify);
+				((double) incorrectClassifyCount) / maxClassify));
 	}
 }

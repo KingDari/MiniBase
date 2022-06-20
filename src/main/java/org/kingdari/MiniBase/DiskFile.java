@@ -157,13 +157,13 @@ public class DiskFile implements Closeable {
 		private KeyValue lastKv;
 		private long blockOffset;
 		private long blockSize;
-		private byte[] bloomFilter;
+		private byte[] bfBytes;
 
-		public BlockMeta(KeyValue lastKv, long offset, long size, byte[] bloomFilter) {
+		public BlockMeta(KeyValue lastKv, long offset, long size, byte[] bfBytes) {
 			this.lastKv = lastKv;
 			this.blockOffset = offset;
 			this.blockSize = size;
-			this.bloomFilter = bloomFilter;
+			this.bfBytes = bfBytes;
 		}
 
 		public KeyValue getLastKv() {
@@ -178,12 +178,12 @@ public class DiskFile implements Closeable {
 			return blockSize;
 		}
 
-		public byte[] getBloomFilter() {
-			return bloomFilter;
+		public byte[] getBFBytes() {
+			return bfBytes;
 		}
 
 		public int getSerializeSize() {
-			return lastKv.getSerializedSize() + OFFSET_SIZE + SIZE_SIZE + BF_LEN_SIZE + bloomFilter.length;
+			return lastKv.getSerializedSize() + OFFSET_SIZE + SIZE_SIZE + BF_LEN_SIZE + bfBytes.length;
 		}
 
 		public byte[] toBytes() throws IOException {
@@ -202,12 +202,12 @@ public class DiskFile implements Closeable {
 			System.arraycopy(sizeBytes, 0, bytes, pos, sizeBytes.length);
 			pos += sizeBytes.length;
 
-			byte[] bfLenBytes = ByteUtils.toBytes(bloomFilter.length);
+			byte[] bfLenBytes = ByteUtils.toBytes(bfBytes.length);
 			System.arraycopy(bfLenBytes, 0, bytes, pos, bfLenBytes.length);
 			pos += bfLenBytes.length;
 
-			System.arraycopy(bloomFilter, 0, bytes, pos, bloomFilter.length);
-			pos += bloomFilter.length;
+			System.arraycopy(bfBytes, 0, bytes, pos, bfBytes.length);
+			pos += bfBytes.length;
 
 			assert pos == bytes.length;
 			return bytes;
@@ -356,20 +356,26 @@ public class DiskFile implements Closeable {
 		}
 	}
 
-	private class InternalIterator implements SeekIter<KeyValue> {
+	private static class InternalIterator implements SeekIter<KeyValue> {
 
+		private DiskFile df;
 		private int currentKvIndex = 0;
 		private BlockReader currentReader;
+		private KeyValueFilter filter;
+		private SortedSet<BlockMeta> filteredMeta;
 		private Iterator<BlockMeta> blockMetaIter;
 
-		public InternalIterator() {
+		public InternalIterator(DiskFile df, KeyValueFilter filter) {
 			this.currentReader = null;
-			this.blockMetaIter = blockMetaSet.iterator();
+			this.df = df;
+			this.filter = filter;
+			this.filteredMeta = filter.getFilteredMeta(df);
+			this.blockMetaIter = filteredMeta.iterator();
 		}
 
 		private boolean nextBlockReader() throws IOException {
 			if (blockMetaIter.hasNext()) {
-				currentReader = loadReader(blockMetaIter.next());
+				currentReader = df.loadReader(blockMetaIter.next());
 				currentKvIndex = 0;
 				return true;
 			} else {
@@ -379,10 +385,10 @@ public class DiskFile implements Closeable {
 
 		@Override
 		public void seekTo(KeyValue targetKv) throws IOException {
-			blockMetaIter = blockMetaSet.tailSet(BlockMeta.createSeekDummy(targetKv)).iterator();
+			blockMetaIter = filteredMeta.tailSet(BlockMeta.createSeekDummy(targetKv)).iterator();
 			currentReader = null;
 			while (blockMetaIter.hasNext()) {
-				currentReader = loadReader(blockMetaIter.next());
+				currentReader = df.loadReader(blockMetaIter.next());
 				for (currentKvIndex = 0;
 				     currentKvIndex < currentReader.getKeyValues().size();
 				     currentKvIndex++) {
@@ -412,7 +418,7 @@ public class DiskFile implements Closeable {
 
 		@Override
 		public void close() {
-			refCount.decrementAndGet();
+			df.refCount.decrementAndGet();
 		}
 	}
 
@@ -430,15 +436,19 @@ public class DiskFile implements Closeable {
 		this.fileName = fileName;
 	}
 
-	// guard in.
 	private BlockReader loadReader(BlockMeta meta) throws IOException {
 		byte[] buffer = new byte[(int) meta.getBlockSize()];
+		// guard in.
 		synchronized (this) {
 			in.seek(meta.getBlockOffset());
 			int len = in.read(buffer);
 			assert len == buffer.length;
 		}
 		return BlockReader.parseFrom(buffer, 0, buffer.length);
+	}
+
+	public SortedSet<BlockMeta> getBlockMetaSet() {
+		return blockMetaSet;
 	}
 
 	public int getRefCount() {
@@ -512,7 +522,11 @@ public class DiskFile implements Closeable {
 	}
 
 	public SeekIter<KeyValue> iterator() {
+		return iterator(new KeyValueFilter());
+	}
+
+	public SeekIter<KeyValue> iterator(KeyValueFilter filter) {
 		refCount.incrementAndGet();
-		return new InternalIterator();
+		return new InternalIterator(this, filter);
 	}
 }

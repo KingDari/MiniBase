@@ -51,7 +51,7 @@ public class DiskFileTest {
 		Assertions.assertEquals(lastKv, meta2.getLastKv());
 		Assertions.assertEquals(offset, meta2.getBlockOffset());
 		Assertions.assertEquals(size, meta2.getBlockSize());
-		Assertions.assertArrayEquals(bloomFilter, meta2.getBloomFilter());
+		Assertions.assertArrayEquals(bloomFilter, meta2.getBFBytes());
 	}
 
 	private byte[] generateRandomBytes() {

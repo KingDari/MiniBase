@@ -381,12 +381,20 @@ public class DiskStore implements Closeable {
 	}
 
 	public SeekIter<KeyValue> createIterator(List<DiskFile> diskFiles) throws IOException {
-		List<SeekIter<KeyValue>> iters = new ArrayList<>(diskFiles.size());
-		diskFiles.forEach(df -> iters.add(df.iterator()));
-		return new MultiIter(iters);
+		return createIterator(diskFiles, new KeyValueFilter());
 	}
 
 	public SeekIter<KeyValue> createIterator() throws IOException {
-		return createIterator(getDiskFilesSnapshot());
+		return createIterator(getDiskFilesSnapshot(), new KeyValueFilter());
+	}
+
+	public SeekIter<KeyValue> createIterator(KeyValueFilter filter) throws IOException {
+		return createIterator(getDiskFilesSnapshot(), filter);
+	}
+
+	public SeekIter<KeyValue> createIterator(List<DiskFile> diskFiles, KeyValueFilter filter) throws IOException {
+		List<SeekIter<KeyValue>> iters = new ArrayList<>(diskFiles.size());
+		diskFiles.forEach(df -> iters.add(df.iterator(filter)));
+		return new MultiIter(iters);
 	}
 }

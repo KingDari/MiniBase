@@ -10,10 +10,14 @@ public interface MiniBase extends Closeable {
 
 	void delete(byte[] key) throws IOException;
 
-	Iter<KeyValue> scan(byte[] startKey, byte[] stopKey) throws IOException;
+	Iter<KeyValue> scan(byte[] startKey, byte[] stopKey, KeyValueFilter filter) throws IOException;
+
+	default Iter<KeyValue> scan(byte[] startKey, byte[] stopKey) throws IOException {
+		return scan(startKey, stopKey, new KeyValueFilter());
+	}
 
 	default Iter<KeyValue> scan() throws IOException {
-		return scan(ByteUtils.EMPTY_BYTES, ByteUtils.EMPTY_BYTES);
+		return scan(ByteUtils.EMPTY_BYTES, ByteUtils.EMPTY_BYTES, new KeyValueFilter());
 	}
 
 	interface Iter<KeyValue> extends Closeable {

@@ -49,7 +49,6 @@ public class MultiIterTest {
 
 		@Override
 		public void close() {
-
 		}
 	}
 

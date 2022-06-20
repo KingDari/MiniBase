@@ -146,6 +146,14 @@ public class MStore implements MiniBase{
 	}
 
 	private KeyValue bfGet(byte[] key) throws IOException {
+		final Iter<KeyValue> iter =
+				scan(key, ByteUtils.EMPTY_BYTES, new KeyValueFilter().setKey(key));
+		if (iter.hasNext()) {
+			final KeyValue kv = iter.next();
+			if (ByteUtils.compare(key, kv.getKey()) == 0) {
+				return kv;
+			}
+		}
 		return null;
 	}
 
@@ -156,7 +164,7 @@ public class MStore implements MiniBase{
 
 	@Override
 	public KeyValue get(byte[] key) throws IOException {
-		return scanGet(key);
+		return bfGet(key);
 	}
 
 	@Override
@@ -165,13 +173,13 @@ public class MStore implements MiniBase{
 	}
 
 	@Override
-	public Iter<KeyValue> scan(byte[] start, byte[] end) throws IOException {
+	public Iter<KeyValue> scan(byte[] start, byte[] end, KeyValueFilter filter) throws IOException {
 		List<SeekIter<KeyValue>> iters = new ArrayList<>();
 		iters.add(memStore.createIterator());
 		// memStore first, diskStore second.
 		// maybe here immutableMap flush to disk.
 		// In this case, read duplicate data instead of losing immutableMap data.
-		iters.add(diskStore.createIterator());
+		iters.add(diskStore.createIterator(filter));
 		MultiIter iter = new MultiIter(iters);
 
 		// EMPTY BYTE means infinity.

@@ -30,6 +30,12 @@ public class BloomFilter {
 		return result;
 	}
 
+	public void setResult(byte[] result) {
+		assert result.length % 8 == 0;
+		this.result = result;
+		this.bitLen = result.length << 3;
+	}
+
 	public boolean mayContains(byte[] key) {
 		assert key != null;
 		int h = ByteUtils.hash(key);
