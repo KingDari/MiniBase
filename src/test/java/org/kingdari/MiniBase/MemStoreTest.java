@@ -9,11 +9,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MemStoreTest {
-	private static class SleepAndFlusher implements MiniBase.Flusher {
+	private static class SleepAndFlusher implements Store.Flusher {
 		private volatile boolean sleepNow = true;
 
 		@Override
-		public void flush(MiniBase.Iter<KeyValue> iter) throws IOException {
+		public void flush(Store.Iter<KeyValue> iter) throws IOException {
 			while(sleepNow) {
 				try {
 					Thread.sleep(100L);

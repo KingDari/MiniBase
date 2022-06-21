@@ -14,7 +14,6 @@ public class KeyValue implements Comparable<KeyValue> {
 	private Op op;
 	private long sequenceId;
 
-
 	public enum Op {
 		Put((byte) 0),
 		Delete((byte) 1);

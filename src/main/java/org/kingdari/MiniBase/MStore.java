@@ -12,7 +12,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class MStore implements MiniBase{
+public class MStore implements Store {
 	private static final Logger LOG = Logger.getLogger(MStore.class);
 
 	/**
@@ -118,7 +118,7 @@ public class MStore implements MiniBase{
 		this.conf = conf;
 	}
 
-	public MiniBase open() throws IOException {
+	public Store open() throws IOException {
 		assert conf != null;
 
 		this.pool = Executors.newFixedThreadPool(conf.getMaxThreadPoolSize());

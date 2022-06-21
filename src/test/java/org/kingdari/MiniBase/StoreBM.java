@@ -34,15 +34,15 @@ import java.util.concurrent.TimeUnit;
 @Threads(5)
 @Fork(1)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
-public class MiniBaseBM {
+public class StoreBM {
 
-	private static final Logger LOG = LogManager.getLogger(MiniBaseBM.class);
+	private static final Logger LOG = LogManager.getLogger(StoreBM.class);
 
 	@Param(value = {"4", "8", "16"})
 	private long memStoreSize;
 	private int retryMaxTimes = 10;
 
-	private MiniBase db;
+	private Store db;
 	private String dataDir;
 
 	@Setup
@@ -87,7 +87,7 @@ public class MiniBaseBM {
 
 	public static void main(String[] args) throws RunnerException {
 		Options opt = new OptionsBuilder()
-				.include(MiniBaseBM.class.getSimpleName())
+				.include(StoreBM.class.getSimpleName())
 				.result("result.json")
 				.resultFormat(ResultFormatType.JSON)
 				.build();

@@ -3,7 +3,7 @@ package org.kingdari.MiniBase;
 import java.io.Closeable;
 import java.io.IOException;
 
-public interface MiniBase extends Closeable {
+public interface Store extends Closeable {
 	void put(byte[] key, byte[] value) throws IOException;
 
 	KeyValue get(byte[] key) throws IOException;

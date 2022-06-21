@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assertions;
 import org.kingdari.MiniBase.DiskStore.MultiIter;
 import org.kingdari.MiniBase.MStore.SeekIter;
-import org.kingdari.MiniBase.MiniBase.Iter;
+import org.kingdari.MiniBase.Store.Iter;
 
 import java.io.File;
 import java.io.IOException;

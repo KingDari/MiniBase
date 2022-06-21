@@ -3,7 +3,7 @@ package org.kingdari.MiniBase;
 import org.apache.log4j.Logger;
 import org.kingdari.MiniBase.DiskStore.MultiIter;
 import org.kingdari.MiniBase.MStore.SeekIter;
-import org.kingdari.MiniBase.MiniBase.Flusher;
+import org.kingdari.MiniBase.Store.Flusher;
 
 import java.io.Closeable;
 import java.io.IOException;

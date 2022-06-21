@@ -12,14 +12,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MiniBaseTest {
+public class StoreTest {
 
 	private static class WriterThread extends Thread {
 		private long start, end;
-		private MiniBase db;
+		private Store db;
 		private long retryCount;
 
-		public WriterThread(MiniBase db, long start, long end) {
+		public WriterThread(Store db, long start, long end) {
 			this.db = db;
 			this.start = start;
 			this.end = end;
@@ -111,7 +111,7 @@ public class MiniBaseTest {
 				setMaxMemStoreSize(512). // Make flushing and compacting frequently
 				setFlushMaxRetryTimes(3).
 				setMaxDiskFiles(10);
-		final MiniBase db = MStore.create(conf).open();
+		final Store db = MStore.create(conf).open();
 
 		final long totalKvSize = 1000L;
 		final int threadSize = 5;
@@ -127,7 +127,7 @@ public class MiniBaseTest {
 			writer.join();
 		}
 
-		try (MiniBase.Iter<KeyValue> kv = db.scan()) {
+		try (Store.Iter<KeyValue> kv = db.scan()) {
 			long current = 0;
 			while (kv.hasNext()) {
 				KeyValue expected = kv.next();
@@ -151,7 +151,7 @@ public class MiniBaseTest {
 		Config conf = new Config().
 				setDataDir(dataDir).
 				setMaxMemStoreSize(128);
-		final MiniBase db = MStore.create(conf).open();
+		final Store db = MStore.create(conf).open();
 
 		byte[] A = ByteUtils.toBytes("A");
 		byte[] B = ByteUtils.toBytes("B");
