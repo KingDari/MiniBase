@@ -89,6 +89,8 @@ public class DiskFileTest {
 	@Test
 	public void diskFileIOTest() throws IOException {
 		String dbFile = "diskFileIOTest.db";
+		File f0 = new File(dbFile);
+		f0.delete();
 		int rowsCount = 1000;
 
 		try {

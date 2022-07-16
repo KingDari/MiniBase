@@ -1,7 +1,5 @@
 package org.kingdari.MiniBase;
 
-import org.apache.log4j.LogManager;
-import org.apache.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -28,17 +26,14 @@ import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 @State(Scope.Benchmark)
-@BenchmarkMode(Mode.All)
-@Warmup(iterations = 0, time = 1)
+@BenchmarkMode(Mode.SampleTime)
+@Warmup(iterations = 2, time = 1)
 @Measurement(iterations = 3, time = 5)
 @Threads(5)
 @Fork(1)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 public class StoreBM {
-
-	private static final Logger LOG = LogManager.getLogger(StoreBM.class);
-
-	@Param(value = {"4", "8", "16"})
+	@Param(value = {"4", "8", "16", "32", "64"})
 	private long memStoreSize;
 	private int retryMaxTimes = 10;
 

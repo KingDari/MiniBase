@@ -123,16 +123,22 @@ public class MemStore implements Closeable {
 	private ExecutorService pool;
 	private Config conf;
 	private Flusher flusher;
+	private MLog log;
 
-	public MemStore(Config conf, Flusher flusher, ExecutorService pool) {
+	public MemStore(Config conf, Flusher flusher, ExecutorService pool, MLog log) {
 		this.conf = conf;
 		this.flusher = flusher;
 		this.pool = pool;
+		this.log = log;
 
 		dataSize.set(0);
 
 		this.kvMap = new ConcurrentSkipListMap<>();
 		this.kvImmutableMap = new ConcurrentSkipListMap<>();
+	}
+
+	public MemStore(Config conf, Flusher flusher, ExecutorService pool) {
+		this(conf, flusher, pool, null);
 	}
 
 	public void add(KeyValue kv) throws IOException {

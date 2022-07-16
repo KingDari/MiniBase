@@ -91,6 +91,7 @@ public class ByteUtils {
 			int j = (3 - i) << 3;
 			v |= ((0xFFL << j) & ((long) bytes[i] << j));
 		}
+		bytes[0] = (byte) (bytes[0] ^ 0x80);
 		return v;
 	}
 

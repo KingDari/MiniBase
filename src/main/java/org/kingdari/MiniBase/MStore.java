@@ -110,7 +110,8 @@ public class MStore implements Store {
 	private MemStore memStore;
 	private DiskStore diskStore;
 	private Compactor compactor;
-	private AtomicLong sequenceId;
+	private MLog log;
+	private AtomicLong globalSeqId;
 
 	private Config conf;
 
@@ -122,11 +123,13 @@ public class MStore implements Store {
 		assert conf != null;
 
 		this.pool = Executors.newFixedThreadPool(conf.getMaxThreadPoolSize());
-		this.diskStore = new DiskStore(conf.getDataDir(), conf.getMaxDiskFiles());
+		this.diskStore = new DiskStore(conf.getFullDataDir(), conf.getMaxDiskFiles());
 		this.diskStore.open();
-		this.sequenceId = new AtomicLong(0);
+		this.globalSeqId = new AtomicLong(0);
 
-		this.memStore = new MemStore(conf, new DefaultFlusher(diskStore), pool);
+		this.log = new BaseLog(conf);
+
+		this.memStore = new MemStore(conf, new DefaultFlusher(diskStore), pool, log);
 
 		this.compactor = new DefaultCompactor(diskStore);
 		this.compactor.start();
@@ -159,7 +162,8 @@ public class MStore implements Store {
 
 	@Override
 	public void put(byte[] key, byte[] value) throws IOException {
-		memStore.add(KeyValue.createPut(key, value, sequenceId.incrementAndGet()));
+		// memStore.add(KeyValue.createPut(key, value, sequenceId.incrementAndGet()));
+		log.put(key, value);
 	}
 
 	@Override
@@ -169,7 +173,8 @@ public class MStore implements Store {
 
 	@Override
 	public void delete(byte[] key) throws IOException {
-		memStore.add(KeyValue.createDelete(key, sequenceId.incrementAndGet()));
+		// memStore.add(KeyValue.createDelete(key, sequenceId.incrementAndGet()));
+		log.delete(key);
 	}
 
 	@Override
@@ -184,7 +189,7 @@ public class MStore implements Store {
 
 		// EMPTY BYTE means infinity.
 		if (ByteUtils.compare(start, ByteUtils.EMPTY_BYTES) != 0) {
-			iter.seekTo(KeyValue.createDelete(start, sequenceId.get()));
+			iter.seekTo(KeyValue.createDelete(start, globalSeqId.get()));
 		}
 
 		KeyValue stopKv = null;
