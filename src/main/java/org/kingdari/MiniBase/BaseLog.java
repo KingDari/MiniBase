@@ -12,7 +12,9 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -50,7 +52,6 @@ public class BaseLog implements MLog {
 				try {
 					final List<LogEntry> entries = logReader.read(readPos, newPos - readPos);
 					readQueue.addAll(entries);
-					LOG.debug("Read " + entries.size() + " log entries success: from " + readPos + " to " + newPos);
 					readPos = newPos;
 				} catch (IOException e) {
 					LOG.error("Read log failed", e);
@@ -80,10 +81,24 @@ public class BaseLog implements MLog {
 		public void run() {
 			while (running || !writeQueue.isEmpty()) {
 				try {
-					LogEntry entry = writeQueue.take();
-					if (entry instanceof LogWal) {
-						logWriter.append((LogWal) entry);
-					} else if (entry instanceof LogSync) {
+					LogEntry logEntry = writeQueue.take();
+					if (logEntry instanceof WriteLogWal) {
+						WriteLogWal entry = (WriteLogWal) logEntry;
+						long seq = sequenceId.incrementAndGet();
+						entry.setSeq(seq);
+						seqIdToEntry.put(seq, entry);
+
+						if (conf.getWalLevel() == WAL_LEVEL.SKIP) {
+							readQueue.add(entry.toReadLogWal());
+						} else if (conf.getWalLevel() == WAL_LEVEL.ASYNC) {
+							readQueue.add(entry.toReadLogWal());
+							logWriter.append(entry);
+						} else if (conf.getWalLevel() == WAL_LEVEL.SYNC || conf.getWalLevel() == WAL_LEVEL.FSYNC) {
+							logWriter.append(entry);
+							logWriter.sync();
+						}
+
+					} else if (logEntry instanceof LogSync) {
 						logWriter.sync();
 					}
 				} catch (InterruptedException | IOException e) {
@@ -130,7 +145,7 @@ public class BaseLog implements MLog {
 			int pos = 0;
 			while (pos != len) {
 				// TODO: factory class
-				LogEntry entry = LogWal.parseFrom(buf, pos);
+				LogEntry entry = ReadLogWal.parseFrom(buf, pos);
 				pos += entry.getSerializedSize();
 				entries.add(entry);
 				assert pos <= len;
@@ -140,7 +155,7 @@ public class BaseLog implements MLog {
 
 		@Override
 		public void close() throws IOException {
-
+			channel.close();
 		}
 	}
 
@@ -156,7 +171,6 @@ public class BaseLog implements MLog {
 		private WAL_LEVEL walLevel;
 		private int maxSize;
 		private int size;
-		private List<LogWal> toSync;
 
 		public LogWriter(String logFileName, int bufferSize, WAL_LEVEL walLevel, AtomicInteger currPos) throws IOException {
 			this.logFileName = logFileName;
@@ -168,11 +182,10 @@ public class BaseLog implements MLog {
 			this.buffer = ByteBuffer.allocateDirect(bufferSize);
 			this.maxSize = bufferSize;
 			this.size = 0;
-			this.toSync = new ArrayList<>();
 			this.walLevel = walLevel;
 		}
 
-		public void append(LogWal logWal) throws IOException {
+		public void append(WriteLogWal logWal) throws IOException {
 			if (!channel.isOpen()) {
 				return;
 			}
@@ -180,7 +193,6 @@ public class BaseLog implements MLog {
 				sync();
 			}
 			size += logWal.getSerializedSize();
-			toSync.add(logWal);
 			buffer.put(logWal.toBytes());
 		}
 
@@ -203,8 +215,6 @@ public class BaseLog implements MLog {
 			}
 			buffer.rewind();
 			buffer.limit(maxSize);
-			toSync.forEach(LogWal::logNotify);
-			toSync = new ArrayList<>();
 
 			LOG.debug("SYNC log to file. Size: " + pos + ", now: " + newCurr);
 		}
@@ -221,6 +231,8 @@ public class BaseLog implements MLog {
 	private String logFileName;
 	private final AtomicInteger logCurrPos;
 
+	private Map<Long, LogEntry> seqIdToEntry;
+
 	private BlockingQueue<LogEntry> writeQueue;
 	private BlockingQueue<LogEntry> readQueue;
 
@@ -233,46 +245,48 @@ public class BaseLog implements MLog {
 		this.logCurrPos = new AtomicInteger(0);
 		this.logFileName = conf.getFullLogDir() + "/base.log";
 
-		this.writeQueue = new LinkedBlockingQueue<>();
-		this.writeQueueConsumer = new WriteQueueConsumer();
-		this.readQueue = new LinkedBlockingQueue<>();
-		this.readQueueProducer = new ReadQueueProducer();
+		this.seqIdToEntry = new ConcurrentHashMap<>();
 
+		this.writeQueue = new LinkedBlockingQueue<>();
+		this.readQueue = new LinkedBlockingQueue<>();
+
+		this.writeQueueConsumer = new WriteQueueConsumer();
 		this.writeQueueConsumer.start();
-		this.readQueueProducer.start();
+
+		if (conf.getWalLevel() != WAL_LEVEL.SKIP && conf.getWalLevel() != WAL_LEVEL.ASYNC) {
+			this.readQueueProducer = new ReadQueueProducer();
+			this.readQueueProducer.start();
+		}
+	}
+
+	public void notifyLogEntry(long seqId) {
+		LogEntry entry = seqIdToEntry.get(seqId);
+		seqIdToEntry.remove(seqId);
+		entry.logNotify();
 	}
 
 	/**
 	 * Concurrent
 	 */
-	private long write(KeyValue kv) {
-		LogWal logWal = new LogWal(kv);
-		if (conf.getWalLevel() == WAL_LEVEL.SKIP) {
-			readQueue.add(logWal);
-		} else if (conf.getWalLevel() == WAL_LEVEL.ASYNC) {
-			writeQueue.add(logWal);
-		} else if (conf.getWalLevel() == WAL_LEVEL.SYNC || conf.getWalLevel() == WAL_LEVEL.FSYNC){
-			writeQueue.add(logWal);
-			writeQueue.add(new LogSync());
-			logWal.logJoin();
-		} else {
-			throw new IllegalArgumentException("Unknown wal level");
-		}
-		return kv.getSequenceId();
+	private long write(WriteLogWal wal) {
+		writeQueue.add(wal);
+		wal.logJoin();
+		return wal.getSeq();
 	}
 
+	@Override
 	public BlockingQueue<LogEntry> getReadQueue() {
 		return this.readQueue;
 	}
 
 	@Override
 	public long put(byte[] key, byte[] value) {
-		return write(KeyValue.createPut(key, value, sequenceId.incrementAndGet()));
+		return write(WriteLogWal.createPutWal(key, value));
 	}
 
 	@Override
 	public long delete(byte[] key) {
-		return write(KeyValue.createDelete(key, sequenceId.incrementAndGet()));
+		return write(WriteLogWal.createDeleteWal(key));
 	}
 
 	@Override

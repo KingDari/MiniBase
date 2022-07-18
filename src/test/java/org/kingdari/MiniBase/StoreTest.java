@@ -86,31 +86,41 @@ public class StoreTest {
 
 		}
 	}
-	private String dataDir;
+
+	private String rootDir;
 
 	@BeforeEach
 	public void setUp() {
-		this.dataDir = "output/MiniBase-" + System.currentTimeMillis();
-		File f = new File(dataDir);
-		Assertions.assertTrue(f.mkdirs());
+		this.rootDir = "output/MiniBase-" + System.currentTimeMillis();
+	}
+
+	private void deleteDir(File dir) {
+		if (!dir.exists()) {
+			return;
+		}
+		for (File file : dir.listFiles()) {
+			if (file.isFile()) {
+				file.delete();
+			} else if (file.isDirectory()) {
+				deleteDir(file);
+			}
+		}
+		dir.delete();
 	}
 
 	@AfterEach
 	public void tearDown() {
-		File f = new File(dataDir);
-		for (File file : f.listFiles()) {
-			file.delete();
-		}
-		f.delete();
+		deleteDir(new File(rootDir));
 	}
 
 	@Test
 	public void putTest() throws IOException, InterruptedException {
 		Config conf = new Config().
-				setDataDir(dataDir).
+				setRoorDir(rootDir).
 				setMaxMemStoreSize(512). // Make flushing and compacting frequently
 				setFlushMaxRetryTimes(3).
-				setMaxDiskFiles(10);
+				setMaxDiskFiles(10).
+				setWalLevel(Config.WAL_LEVEL.SKIP);
 		final Store db = MStore.create(conf).open();
 
 		final long totalKvSize = 1000L;
@@ -147,10 +157,11 @@ public class StoreTest {
 	}
 
 	@Test
-	public void mixedOpTest() throws IOException {
+	public void mixedOpTest() throws Exception {
 		Config conf = new Config().
-				setDataDir(dataDir).
-				setMaxMemStoreSize(128);
+				setRoorDir(rootDir).
+				setMaxMemStoreSize(128).
+				setWalLevel(Config.WAL_LEVEL.SYNC);
 		final Store db = MStore.create(conf).open();
 
 		byte[] A = ByteUtils.toBytes("A");

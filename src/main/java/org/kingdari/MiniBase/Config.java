@@ -12,6 +12,7 @@ public class Config {
 	private int logBufferSize = 16 * 1024 * 1024;
 	private long maxMemStoreSize = 16 * 1024 * 1024;
 	private int flushMaxRetryTimes = 10;
+	private int putMaxRetryTimes = 100;
 	private String rootDir = "MiniBase";
 	private String dataDir = "Data";
 	private String logDir = "Log";
@@ -23,6 +24,11 @@ public class Config {
 
 	public static Config getDefault() {
 		return DEFAULT;
+	}
+
+	public Config setPutMaxRetryTimes(int times) {
+		this.putMaxRetryTimes = times;
+		return this;
 	}
 
 	public Config setLogBufferSize(int size) {
@@ -73,6 +79,10 @@ public class Config {
 	public Config setMaxMemStoreSize(int maxMemStoreSize) {
 		this.maxMemStoreSize = maxMemStoreSize;
 		return this;
+	}
+
+	public int getPutMaxRetryTimes() {
+		return putMaxRetryTimes;
 	}
 
 	public int getLogBufferSize() {

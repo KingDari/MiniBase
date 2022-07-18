@@ -5,6 +5,7 @@ import org.kingdari.MiniBase.DiskStore.DefaultCompactor;
 import org.kingdari.MiniBase.DiskStore.DefaultFlusher;
 import org.kingdari.MiniBase.DiskStore.MultiIter;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -112,6 +113,7 @@ public class MStore implements Store {
 	private Compactor compactor;
 	private MLog log;
 	private AtomicLong globalSeqId;
+	private LogConsumer logConsumer;
 
 	private Config conf;
 
@@ -122,14 +124,17 @@ public class MStore implements Store {
 	public Store open() throws IOException {
 		assert conf != null;
 
+		initFile();
+
 		this.pool = Executors.newFixedThreadPool(conf.getMaxThreadPoolSize());
 		this.diskStore = new DiskStore(conf.getFullDataDir(), conf.getMaxDiskFiles());
 		this.diskStore.open();
 		this.globalSeqId = new AtomicLong(0);
 
 		this.log = new BaseLog(conf);
-
-		this.memStore = new MemStore(conf, new DefaultFlusher(diskStore), pool, log);
+		this.memStore = new MemStore(conf, new DefaultFlusher(diskStore), pool);
+		this.logConsumer = new LogConsumer(conf, (BaseLog) log, memStore, this);
+		this.logConsumer.start();
 
 		this.compactor = new DefaultCompactor(diskStore);
 		this.compactor.start();
@@ -158,6 +163,24 @@ public class MStore implements Store {
 			}
 		}
 		return null;
+	}
+
+	public long updateGlobalVersion(long seq) {
+		long now;
+		do {
+			now = globalSeqId.get();
+			if (now >= seq) {
+				return now;
+			}
+		} while (globalSeqId.compareAndSet(now, seq));
+		return seq;
+	}
+
+	private void initFile() {
+		File dataDir = new File(conf.getFullDataDir());
+		dataDir.mkdirs();
+		File logDir = new File(conf.getFullLogDir());
+		logDir.mkdirs();
 	}
 
 	@Override
@@ -201,6 +224,7 @@ public class MStore implements Store {
 
 	@Override
 	public void close() throws IOException {
+		logConsumer.close();
 		compactor.stopRunning(); // waiting compact finish.
 		memStore.close();
 		diskStore.close();

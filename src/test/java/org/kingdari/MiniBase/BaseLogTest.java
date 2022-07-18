@@ -4,27 +4,66 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kingdari.MiniBase.Config.WAL_LEVEL;
 
-import java.util.concurrent.BlockingQueue;
+import java.io.Closeable;
+import java.io.IOException;
 
 public class BaseLogTest {
+
+	static class MockLogConsumer extends Thread implements Closeable {
+
+		private BaseLog log;
+		private long expectSeq;
+		private volatile boolean running;
+
+		MockLogConsumer(BaseLog log) {
+			this.log = log;
+			this.running = true;
+			this.expectSeq = 1;
+		}
+
+		public long getExpectSeq() {
+			return expectSeq;
+		}
+
+		@Override
+		public void run() {
+			while (running || !log.getReadQueue().isEmpty()) {
+				try {
+					LogEntry entry = log.getReadQueue().take();
+					long seq = ((ReadLogWal) entry).getKv().getSequenceId();
+					Assertions.assertEquals(seq, expectSeq);
+					expectSeq++;
+					log.notifyLogEntry(seq);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+
+		@Override
+		public void close() throws IOException {
+			this.running = false;
+		}
+	}
 
 	private void basicHelper(WAL_LEVEL walLevel) throws Exception {
 		Config conf = Config.getDefault().setWalLevel(walLevel);
 		BaseLog log = new BaseLog(conf);
+		MockLogConsumer consumer = new MockLogConsumer(log);
+		consumer.start();
 		for (int i = 0; i <= 16; i++) {
 			log.put(ByteUtils.toBytes(i), ByteUtils.toBytes(i));
 		}
 		log.close();
-		final BlockingQueue<LogEntry> queue = log.getReadQueue();
-		for (int i = 0; i <= 16; i++) {
-			Assertions.assertEquals(((LogWal) queue.take()).getKv(),
-					KeyValue.createPut(ByteUtils.toBytes(i), ByteUtils.toBytes(i), i + 1));
-		}
+		consumer.close();
+		Assertions.assertEquals(consumer.getExpectSeq(), 18);
 	}
 
 	private void concurrentHelper(WAL_LEVEL walLevel) throws Exception {
 		Config conf = Config.getDefault().setWalLevel(walLevel);
 		BaseLog log = new BaseLog(conf);
+		MockLogConsumer consumer = new MockLogConsumer(log);
+		consumer.start();
 		int n = 1000, ths = 4;
 		Thread[] threads = new Thread[ths];
 		for (int i = 0; i < ths; i++) {
@@ -40,19 +79,8 @@ public class BaseLogTest {
 			threads[i].join();
 		}
 		log.close();
-		final BlockingQueue<LogEntry> queue = log.getReadQueue();
-		boolean[] checkSeq = new boolean[n];
-		boolean[] checkKey = new boolean[n];
-		for (int i = 0; i < n; i++) {
-			LogWal wal = (LogWal) queue.take();
-			KeyValue kv = wal.getKv();
-			Assertions.assertArrayEquals(kv.getKey(), kv.getValue());
-			Assertions.assertEquals(kv.getOp(), KeyValue.Op.Put);
-			Assertions.assertFalse(checkSeq[(int) kv.getSequenceId() - 1]);
-			Assertions.assertFalse(checkKey[ByteUtils.toInt(kv.getKey())]);
-			checkSeq[(int) kv.getSequenceId() - 1] = true;
-			checkKey[ByteUtils.toInt(kv.getKey())] = true;
-		}
+		consumer.close();
+		Assertions.assertEquals(consumer.getExpectSeq(), 1001);
 	}
 
 	@Test

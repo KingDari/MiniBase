@@ -2,12 +2,12 @@ package org.kingdari.MiniBase;
 
 import java.io.IOException;
 
-public class LogWal implements LogEntry {
+public class ReadLogWal implements LogEntry {
 
 	private KeyValue kv;
 	private boolean consumed;
 
-	LogWal(KeyValue kv) {
+	ReadLogWal(KeyValue kv) {
 		this.kv = kv;
 		this.consumed = false;
 	}
@@ -24,8 +24,8 @@ public class LogWal implements LogEntry {
 		return kv;
 	}
 
-	public static LogWal parseFrom(byte[] bytes, int offset) throws IOException {
-		return new LogWal(KeyValue.parseFrom(bytes, offset));
+	public static ReadLogWal parseFrom(byte[] bytes, int offset) throws IOException {
+		return new ReadLogWal(KeyValue.parseFrom(bytes, offset));
 	}
 
 	@Override

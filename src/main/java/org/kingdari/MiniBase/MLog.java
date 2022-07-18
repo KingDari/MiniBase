@@ -1,6 +1,7 @@
 package org.kingdari.MiniBase;
 
 import java.io.Closeable;
+import java.util.concurrent.BlockingQueue;
 
 public interface MLog extends Closeable {
 
@@ -9,4 +10,6 @@ public interface MLog extends Closeable {
 	long delete(byte[] key);
 
 	void sync();
+
+	BlockingQueue<LogEntry> getReadQueue();
 }
