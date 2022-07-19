@@ -17,7 +17,7 @@ public class KeyValueTest {
 		Assertions.assertNotEquals(kv1, KeyValue.createPut(
 				ByteUtils.toBytes(100), ByteUtils.toBytes(200), 1L));
 		Assertions.assertNotEquals(kv1, KeyValue.createDelete(
-				ByteUtils.toBytes(100), 0L));
+				ByteUtils.toBytes(100), 1L));
 
 		KeyValue kv2 = KeyValue.createPut(
 				ByteUtils.toBytes(-200), ByteUtils.toBytes(-200), 0L);

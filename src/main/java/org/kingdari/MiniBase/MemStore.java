@@ -24,25 +24,43 @@ public class MemStore implements Closeable {
 
 		private SortedMap<KeyValue, KeyValue> sortedMap;
 		private Iterator<KeyValue> it;
+		private KeyValueFilter filter;
+		private KeyValue nextKv;
 
-		public IteratorWrapper(SortedMap<KeyValue, KeyValue> sortedMap) {
+		public IteratorWrapper(SortedMap<KeyValue, KeyValue> sortedMap, KeyValueFilter filter) {
 			this.sortedMap = sortedMap;
 			this.it = sortedMap.values().iterator();
+			this.filter = filter;
 		}
 
 		@Override
 		public void seekTo(KeyValue kv) throws IOException {
 			it = sortedMap.tailMap(kv).values().iterator();
+			nextKv = null;
 		}
 
 		@Override
 		public boolean hasNext() throws IOException {
-			return it != null && it.hasNext();
+			if (nextKv == null) {
+				while (it.hasNext()) {
+					KeyValue kv = it.next();
+					if (filter.isOk(kv)) {
+						nextKv = kv;
+						break;
+					}
+				}
+			}
+			return nextKv != null;
 		}
 
 		@Override
 		public KeyValue next() throws IOException {
-			return it.next();
+			if (nextKv == null && !hasNext()) {
+				return null;
+			}
+			KeyValue kv = nextKv;
+			nextKv = null;
+			return kv;
 		}
 
 		@Override
@@ -54,13 +72,15 @@ public class MemStore implements Closeable {
 	private static class MemStoreIter implements SeekIter<KeyValue> {
 		private MultiIter iter;
 		private MemStore memStore;
+		private KeyValueFilter filter;
 
-		public MemStoreIter(MemStore memStore) throws IOException {
+		public MemStoreIter(MemStore memStore, KeyValueFilter filter) throws IOException {
 			this.memStore = memStore;
+			this.filter = filter;
 			ConcurrentSkipListMap<KeyValue, KeyValue>[] memStoreMaps = memStore.getMemStoreMaps();
 			this.iter = new MultiIter(new SeekIter[]{
-					new IteratorWrapper(memStoreMaps[0]),
-					new IteratorWrapper(memStoreMaps[1])});
+					new IteratorWrapper(memStoreMaps[0], filter),
+					new IteratorWrapper(memStoreMaps[1], filter)});
 		}
 
 		@Override
@@ -90,7 +110,7 @@ public class MemStore implements Closeable {
 			boolean success = false;
 			for (int i = 0; i < conf.getFlushMaxRetryTimes(); i++) {
 				try {
-					flusher.flush(new IteratorWrapper(kvImmutableMap));
+					flusher.flush(new IteratorWrapper(kvImmutableMap, KeyValueFilter.createEmptyFilter()));
 					success = true;
 					break;
 				} catch (IOException e) {
@@ -164,7 +184,7 @@ public class MemStore implements Closeable {
 						if (isImmutableMapFlushing.compareAndSet(true, false)) {
 							return;
 						} else {
-							LOG.error("Unexpected CAS fail");
+							throw new RuntimeException("Unexpected CAS Fail");
 						}
 					}
 					kvImmutableMap = kvMap;
@@ -196,7 +216,11 @@ public class MemStore implements Closeable {
 	}
 
 	public SeekIter<KeyValue> createIterator() throws IOException {
-		return new MemStoreIter(this);
+		return createIterator(new KeyValueFilter());
+	}
+
+	public SeekIter<KeyValue> createIterator(KeyValueFilter filter) throws IOException {
+		return new MemStoreIter(this, filter);
 	}
 
 	@Override

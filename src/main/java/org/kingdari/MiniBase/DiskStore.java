@@ -166,6 +166,7 @@ public class DiskStore implements Closeable {
 
 		private SeekIter<KeyValue> iters[];
 		private PriorityQueue<IterNode> queue;
+		private KeyValueFilter filter;
 
 		public MultiIter(SeekIter<KeyValue>[] iters) throws IOException {
 			assert iters != null;

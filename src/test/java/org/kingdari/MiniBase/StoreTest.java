@@ -137,10 +137,10 @@ public class StoreTest {
 			writer.join();
 		}
 
-		try (Store.Iter<KeyValue> kv = db.scan()) {
+		try (Store.Iter<KeyValue> iter = db.scan()) {
 			long current = 0;
-			while (kv.hasNext()) {
-				KeyValue expected = kv.next();
+			while (iter.hasNext()) {
+				KeyValue expected = iter.next();
 				KeyValue currentKv = KeyValue.createPut(
 						ByteUtils.toBytes(current), ByteUtils.toBytes(current), 0L);
 				Assertions.assertArrayEquals(expected.getKey(), currentKv.getKey());
@@ -152,6 +152,16 @@ public class StoreTest {
 				current++;
 			}
 			Assertions.assertEquals(current, totalKvSize);
+		}
+
+		// mvcc
+		try (Store.Iter<KeyValue> iter = db.scan(new KeyValueFilter().setVersion(500L))) {
+			int count = 0;
+			while (iter.hasNext()) {
+				Assertions.assertTrue(iter.next().getSequenceId() <= 500L);
+				count++;
+			}
+			Assertions.assertEquals(count, 500);
 		}
 		db.close();
 	}
@@ -168,21 +178,25 @@ public class StoreTest {
 		byte[] B = ByteUtils.toBytes("B");
 		byte[] C = ByteUtils.toBytes("C");
 
+		KeyValueFilter filterA = new KeyValueFilter().setKey(A).setVersion(100L);
+		KeyValueFilter filterB = new KeyValueFilter().setKey(B).setVersion(100L);
+		KeyValueFilter filterC = new KeyValueFilter().setKey(C).setVersion(100L);
+
 		db.put(A, A);
-		Assertions.assertArrayEquals(db.get(A).getValue(), A);
+		Assertions.assertArrayEquals(db.get(filterA).getValue(), A);
 		db.put(A, B);
-		Assertions.assertArrayEquals(db.get(A).getValue(), B);
+		Assertions.assertArrayEquals(db.get(filterA).getValue(), B);
 		db.delete(A);
-		Assertions.assertNull(db.get(A));
+		Assertions.assertNull(db.get(filterA));
 		db.put(B, A);
 		db.put(A, B);
-		Assertions.assertArrayEquals(db.get(A).getValue(), B);
-		Assertions.assertArrayEquals(db.get(B).getValue(), A);
+		Assertions.assertArrayEquals(db.get(filterA).getValue(), B);
+		Assertions.assertArrayEquals(db.get(filterB).getValue(), A);
 		db.delete(B);
 		db.put(C, C);
-		Assertions.assertArrayEquals(db.get(A).getValue(), B);
-		Assertions.assertNull(db.get(B));
-		Assertions.assertArrayEquals(db.get(C).getValue(), C);
+		Assertions.assertArrayEquals(db.get(filterA).getValue(), B);
+		Assertions.assertNull(db.get(filterB));
+		Assertions.assertArrayEquals(db.get(filterC).getValue(), C);
 		db.close();
 	}
 

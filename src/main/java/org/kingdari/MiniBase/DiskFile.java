@@ -111,12 +111,14 @@ public class DiskFile implements Closeable {
 
 	public static class BlockReader {
 		private List<KeyValue> kvBuf;
+		private KeyValueFilter filter;
 
-		public BlockReader(List<KeyValue> kvBuf) {
+		public BlockReader(List<KeyValue> kvBuf, KeyValueFilter filter) {
 			this.kvBuf = kvBuf;
+			this.filter = filter;
 		}
 
-		public static BlockReader parseFrom(byte[] buffer, int offset, int size) throws IOException {
+		public static BlockReader parseFrom(byte[] buffer, int offset, int size, KeyValueFilter filter) throws IOException {
 			int pos = offset;
 			List<KeyValue> kvBuf = new ArrayList<>();
 			Checksum crc32 = new CRC32();
@@ -126,7 +128,9 @@ public class DiskFile implements Closeable {
 
 			for (int i = 0; i < kvSize; i++) {
 				KeyValue kv = KeyValue.parseFrom(buffer, pos);
-				kvBuf.add(kv);
+				if (filter.isOk(kv)) {
+					kvBuf.add(kv);
+				}
 				crc32.update(buffer, pos, kv.getSerializedSize());
 				pos += kv.getSerializedSize();
 			}
@@ -136,7 +140,7 @@ public class DiskFile implements Closeable {
 
 			assert checksum == (int) crc32.getValue();
 			assert pos == size : "pos: " + pos + ", size: " + size;
-			return new BlockReader(kvBuf);
+			return new BlockReader(kvBuf, filter);
 		}
 
 		public List<KeyValue> getKeyValues() {
@@ -374,13 +378,15 @@ public class DiskFile implements Closeable {
 		}
 
 		private boolean nextBlockReader() throws IOException {
-			if (blockMetaIter.hasNext()) {
-				currentReader = df.loadReader(blockMetaIter.next());
+			while (blockMetaIter.hasNext()) {
+				currentReader = df.loadReader(blockMetaIter.next(), filter);
+				if (currentReader.getKeyValues().isEmpty()) {
+					continue;
+				}
 				currentKvIndex = 0;
 				return true;
-			} else {
-				return false;
 			}
+			return false;
 		}
 
 		@Override
@@ -388,7 +394,7 @@ public class DiskFile implements Closeable {
 			blockMetaIter = filteredMeta.tailSet(BlockMeta.createSeekDummy(targetKv)).iterator();
 			currentReader = null;
 			while (blockMetaIter.hasNext()) {
-				currentReader = df.loadReader(blockMetaIter.next());
+				currentReader = df.loadReader(blockMetaIter.next(), filter);
 				for (currentKvIndex = 0;
 				     currentKvIndex < currentReader.getKeyValues().size();
 				     currentKvIndex++) {
@@ -436,7 +442,7 @@ public class DiskFile implements Closeable {
 		this.fileName = fileName;
 	}
 
-	private BlockReader loadReader(BlockMeta meta) throws IOException {
+	private BlockReader loadReader(BlockMeta meta, KeyValueFilter filter) throws IOException {
 		byte[] buffer = new byte[(int) meta.getBlockSize()];
 		// guard in.
 		synchronized (this) {
@@ -444,7 +450,7 @@ public class DiskFile implements Closeable {
 			int len = in.read(buffer);
 			assert len == buffer.length;
 		}
-		return BlockReader.parseFrom(buffer, 0, buffer.length);
+		return BlockReader.parseFrom(buffer, 0, buffer.length, filter);
 	}
 
 	public SortedSet<BlockMeta> getBlockMetaSet() {

@@ -131,4 +131,35 @@ public class MemStoreTest {
 			pool.shutdownNow();
 		}
 	}
+
+	@Test
+	public void mvccMemStoreTest() throws Exception {
+		ExecutorService pool = Executors.newFixedThreadPool(1);
+		try {
+			Config conf = new Config().setMaxMemStoreSize(2 * 1024 * 1024);
+			MemStore memStore = new MemStore(conf, new SleepAndFlusher(), pool);
+			byte[] bytes = ByteUtils.toBytes(1);
+
+			KeyValue kv1 = KeyValue.createPut(bytes, bytes, 1);
+			KeyValue kv2 = KeyValue.createDelete(bytes, 2);
+
+			memStore.add(kv1);
+			MStore.SeekIter<KeyValue> iter1 = memStore.createIterator(new KeyValueFilter().setVersion(0L));
+			Assertions.assertFalse(iter1.hasNext());
+			iter1 = memStore.createIterator(new KeyValueFilter().setVersion(1L));
+			Assertions.assertTrue(iter1.hasNext());
+			Assertions.assertEquals(iter1.next(), kv1);
+			iter1 = memStore.createIterator(new KeyValueFilter().setVersion(1000L));
+			Assertions.assertTrue(iter1.hasNext());
+			Assertions.assertEquals(iter1.next(), kv1);
+			memStore.add(kv2);
+			MStore.SeekIter<KeyValue> iter2 = memStore.createIterator(new KeyValueFilter().setVersion(2L));
+			Assertions.assertTrue(iter2.hasNext());
+			Assertions.assertEquals(iter2.next(), kv2);
+			Assertions.assertTrue(iter2.hasNext());
+			Assertions.assertEquals(iter2.next(), kv1);
+		} finally {
+			pool.shutdownNow();
+		}
+	}
 }

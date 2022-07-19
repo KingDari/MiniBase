@@ -6,18 +6,14 @@ import java.io.IOException;
 public interface Store extends Closeable {
 	void put(byte[] key, byte[] value) throws IOException;
 
-	KeyValue get(byte[] key) throws IOException;
-
 	void delete(byte[] key) throws IOException;
 
-	Iter<KeyValue> scan(byte[] startKey, byte[] stopKey, KeyValueFilter filter) throws IOException;
+	KeyValue get(KeyValueFilter filter) throws IOException;
 
-	default Iter<KeyValue> scan(byte[] startKey, byte[] stopKey) throws IOException {
-		return scan(startKey, stopKey, new KeyValueFilter());
-	}
+	Iter<KeyValue> scan(KeyValueFilter filter) throws IOException;
 
 	default Iter<KeyValue> scan() throws IOException {
-		return scan(ByteUtils.EMPTY_BYTES, ByteUtils.EMPTY_BYTES, new KeyValueFilter());
+		return scan(KeyValueFilter.createEmptyFilter());
 	}
 
 	interface Iter<KeyValue> extends Closeable {

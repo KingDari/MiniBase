@@ -143,7 +143,7 @@ public class MStore implements Store {
 	}
 
 	private KeyValue scanGet(byte[] key) throws IOException {
-		final Iter<KeyValue> iter = scan(key, ByteUtils.EMPTY_BYTES);
+		final Iter<KeyValue> iter = scan(new KeyValueFilter().setRange(key, ByteUtils.EMPTY_BYTES));
 		if (iter.hasNext()) {
 			final KeyValue kv = iter.next();
 			if (ByteUtils.compare(key, kv.getKey()) == 0) {
@@ -153,12 +153,13 @@ public class MStore implements Store {
 		return null;
 	}
 
-	private KeyValue bfGet(byte[] key) throws IOException {
-		final Iter<KeyValue> iter =
-				scan(key, ByteUtils.EMPTY_BYTES, new KeyValueFilter().setKey(key));
+	private KeyValue bfGet(KeyValueFilter filter) throws IOException {
+		filter.setVersionIfAbsent(globalSeqId.get()).
+				setRange(filter.getKey(), ByteUtils.EMPTY_BYTES);
+		Iter<KeyValue> iter = scan(filter);
 		if (iter.hasNext()) {
-			final KeyValue kv = iter.next();
-			if (ByteUtils.compare(key, kv.getKey()) == 0) {
+			KeyValue kv = iter.next();
+			if (ByteUtils.compare(filter.getKey(), kv.getKey()) == 0) {
 				return kv;
 			}
 		}
@@ -185,25 +186,27 @@ public class MStore implements Store {
 
 	@Override
 	public void put(byte[] key, byte[] value) throws IOException {
-		// memStore.add(KeyValue.createPut(key, value, sequenceId.incrementAndGet()));
 		log.put(key, value);
 	}
 
 	@Override
-	public KeyValue get(byte[] key) throws IOException {
-		return bfGet(key);
+	public KeyValue get(KeyValueFilter filter) throws IOException {
+		return bfGet(filter);
 	}
 
 	@Override
 	public void delete(byte[] key) throws IOException {
-		// memStore.add(KeyValue.createDelete(key, sequenceId.incrementAndGet()));
 		log.delete(key);
 	}
 
 	@Override
-	public Iter<KeyValue> scan(byte[] start, byte[] end, KeyValueFilter filter) throws IOException {
+	public Iter<KeyValue> scan(KeyValueFilter filter) throws IOException {
+		filter.setVersionIfAbsent(globalSeqId.get());
+		byte[] start = filter.getStart();
+		byte[] end = filter.getEnd();
+
 		List<SeekIter<KeyValue>> iters = new ArrayList<>();
-		iters.add(memStore.createIterator());
+		iters.add(memStore.createIterator(filter));
 		// memStore first, diskStore second.
 		// maybe here immutableMap flush to disk.
 		// In this case, read duplicate data instead of losing immutableMap data.
@@ -212,7 +215,7 @@ public class MStore implements Store {
 
 		// EMPTY BYTE means infinity.
 		if (ByteUtils.compare(start, ByteUtils.EMPTY_BYTES) != 0) {
-			iter.seekTo(KeyValue.createDelete(start, globalSeqId.get()));
+			iter.seekTo(KeyValue.createDelete(start, filter.getVersion()));
 		}
 
 		KeyValue stopKv = null;
@@ -233,8 +236,6 @@ public class MStore implements Store {
 	interface SeekIter<KeyValue> extends Iter<KeyValue> {
 		/**
 		 * Seek to the smallest kv which is greater than or equals to param.
-		 * @param kv
-		 * @throws IOException
 		 */
 		void seekTo(KeyValue kv) throws IOException;
 	}

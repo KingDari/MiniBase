@@ -26,7 +26,7 @@ public class DiskFileTest {
 		Assertions.assertEquals(bw.getLastKv(), KeyValue.createPut(lastBytes, lastBytes, i - 1));
 
 		byte[] buffer = bw.serialize();
-		BlockReader br = BlockReader.parseFrom(bw.serialize(), 0, buffer.length);
+		BlockReader br = BlockReader.parseFrom(bw.serialize(), 0, buffer.length, new KeyValueFilter());
 
 		byte[][] keys = new byte[br.getKeyValues().size()][];
 		for (int j = 0; j < keys.length; j++) {
@@ -70,7 +70,7 @@ public class DiskFileTest {
 			try (DiskFileWriter dfw = new DiskFileWriter(dbFile)) {
 				for (int i = 0; i < 1000; i++) {
 					dfw.append(KeyValue.createPut(
-							generateRandomBytes(), generateRandomBytes(), 1L));
+							generateRandomBytes(), generateRandomBytes(), (long) i));
 				}
 				dfw.appendIndex();
 				dfw.appendTrailer();

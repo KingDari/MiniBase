@@ -160,7 +160,11 @@ public class KeyValue implements Comparable<KeyValue> {
 		return sb.toString();
 	}
 
-	// sort from negative to positive
+	/**
+	 * 1. key small -> big
+	 * 2. Seq Big -> small
+	 * 3. Op  Delete -> Put: Only happens when dummy comparing
+	 */
 	@Override
 	public int compareTo(KeyValue kv) {
 		if (kv == null) {
