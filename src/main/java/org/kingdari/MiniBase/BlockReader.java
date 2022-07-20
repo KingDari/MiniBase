@@ -37,14 +37,17 @@ public class BlockReader {
 
 		@Override
 		public void seekTo(KeyValue target) throws IOException {
-			while (pos < list.size()) {
-				KeyValue kv = list.get(pos);
+			int l = 0, r = list.size() - 1;
+			while (l <= r) {
+				int m = (r - l) / 2 + l;
+				KeyValue kv = list.get(m);
 				if (filter.isVisible(kv) && kv.compareTo(target) >= 0) {
-					return;
+					r = m - 1;
 				} else {
-					pos++;
+					l = m + 1;
 				}
 			}
+			pos = l;
 		}
 
 		@Override

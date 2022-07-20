@@ -39,6 +39,7 @@ public class BlockCache {
 	}
 
 	// TODO: Concurrent level: map -> bucket
+	// TODO: RefCount: Ensure using block won't be evicted
 	public synchronized BlockReader get(BlockId bid) throws IOException {
 		BlockReader blockReader = cache.get(bid);
 		if (blockReader == null) {
