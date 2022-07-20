@@ -127,7 +127,8 @@ public class MStore implements Store {
 		initFile();
 
 		this.pool = Executors.newFixedThreadPool(conf.getMaxThreadPoolSize());
-		this.diskStore = new DiskStore(conf.getFullDataDir(), conf.getMaxDiskFiles());
+		this.diskStore = new DiskStore(conf.getFullDataDir(),
+				conf.getMaxDiskFiles(), conf.getMaxBlockCacheSize());
 		this.diskStore.open();
 		this.globalSeqId = new AtomicLong(0);
 

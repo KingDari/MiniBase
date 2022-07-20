@@ -79,6 +79,10 @@ public class KeyValue implements Comparable<KeyValue> {
 		return key.length + OP_SIZE + SEQ_ID_SIZE;
 	}
 
+	public int getMemorySize() {
+		return getRawKeyLen() + value.length;
+	}
+
 	public int getSerializedSize() {
 		return RAW_KEY_LEN_SIZE + VAL_LEN_SIZE + getRawKeyLen() + value.length;
 	}

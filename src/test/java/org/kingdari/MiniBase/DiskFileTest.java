@@ -1,11 +1,7 @@
 package org.kingdari.MiniBase;
 
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assertions;
-import org.kingdari.MiniBase.DiskFile.BlockMeta;
-import org.kingdari.MiniBase.DiskFile.BlockReader;
-import org.kingdari.MiniBase.DiskFile.BlockWriter;
-import org.kingdari.MiniBase.DiskFile.DiskFileWriter;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -26,7 +22,7 @@ public class DiskFileTest {
 		Assertions.assertEquals(bw.getLastKv(), KeyValue.createPut(lastBytes, lastBytes, i - 1));
 
 		byte[] buffer = bw.serialize();
-		BlockReader br = BlockReader.parseFrom(bw.serialize(), 0, buffer.length, new KeyValueFilter());
+		BlockReader br = BlockReader.parseFrom(bw.serialize(), 0, buffer.length);
 
 		byte[][] keys = new byte[br.getKeyValues().size()][];
 		for (int j = 0; j < keys.length; j++) {

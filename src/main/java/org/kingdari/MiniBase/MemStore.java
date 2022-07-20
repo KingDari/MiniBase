@@ -44,7 +44,7 @@ public class MemStore implements Closeable {
 			if (nextKv == null) {
 				while (it.hasNext()) {
 					KeyValue kv = it.next();
-					if (filter.isOk(kv)) {
+					if (filter.isVisible(kv)) {
 						nextKv = kv;
 						break;
 					}

@@ -90,12 +90,12 @@ public class MultiIterTest {
 	private void diskFileMergeSort(String[] inputs, String output, int rowCount)
 			throws IOException {
 		try {
-			DiskFile.DiskFileWriter[] writers = new DiskFile.DiskFileWriter[inputs.length];
+			DiskFileWriter[] writers = new DiskFileWriter[inputs.length];
 			DiskFile[] readers = new DiskFile[inputs.length];
 			SeekIter<KeyValue>[] iters = new SeekIter[inputs.length];
 
 			for (int i = 0; i < inputs.length; i++) {
-				writers[i] = new DiskFile.DiskFileWriter(inputs[i]);
+				writers[i] = new DiskFileWriter(inputs[i]);
 			}
 			for (int i = 0; i < rowCount; i++) {
 				int k = i % inputs.length;
@@ -111,7 +111,7 @@ public class MultiIterTest {
 				iters[i] = readers[i].iterator();
 			}
 
-			DiskFile.DiskFileWriter writer = new DiskFile.DiskFileWriter(output);
+			DiskFileWriter writer = new DiskFileWriter(output);
 			try (MultiIter multiIter = new MultiIter(iters)) {
 				while (multiIter.hasNext()) {
 					writer.append(multiIter.next());

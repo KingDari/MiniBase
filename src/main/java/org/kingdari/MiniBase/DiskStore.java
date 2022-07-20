@@ -1,7 +1,6 @@
 package org.kingdari.MiniBase;
 
 import org.apache.log4j.Logger;
-import org.kingdari.MiniBase.DiskFile.DiskFileWriter;
 import org.kingdari.MiniBase.MStore.SeekIter;
 import org.kingdari.MiniBase.Store.Compactor;
 import org.kingdari.MiniBase.Store.Flusher;
@@ -96,7 +95,7 @@ public class DiskStore implements Closeable {
 					throw new IOException("Rename fail: " + fileTempName);
 				}
 
-				diskStore.compactDown(filesToCompact, new DiskFile(fileName).open());
+				diskStore.compactDown(filesToCompact, new DiskFile(fileName, diskStore.cache).open());
 			} finally {
 				File f = new File(fileTempName);
 				if (f.exists()) {
@@ -235,6 +234,8 @@ public class DiskStore implements Closeable {
 	// Already compact data to new file. But maybe some iterator is scanning old disk files.
 	private List<DiskFile> compactedDiskFiles;
 
+	private BlockCache cache;
+
 	private final int maxDiskFiles;
 	private volatile AtomicLong maxFileId;
 
@@ -244,13 +245,14 @@ public class DiskStore implements Closeable {
 		return files == null ? new File[]{} : files;
 	}
 
-	public DiskStore(String dataDir, int maxDiskFiles) {
+	public DiskStore(String dataDir, int maxDiskFiles, long maxBlockCacheSize) {
 		this.dataDir = dataDir;
 		this.maxDiskFiles = maxDiskFiles;
 		this.diskFiles = new ArrayList<>();
 		this.compactedDiskFiles = new ArrayList<>();
 		this.diskFilesLock = new ReentrantReadWriteLock();
 		this.compactedDiskFilesLock = new ReentrantReadWriteLock();
+		this.cache = new BlockCache(maxBlockCacheSize);
 	}
 
 	public void open() throws IOException {
@@ -269,7 +271,7 @@ public class DiskStore implements Closeable {
 		diskFilesLock.writeLock().lock();
 		try {
 			for (File f : files) {
-				DiskFile df = new DiskFile(f.getAbsolutePath()).open();
+				DiskFile df = new DiskFile(f.getAbsolutePath(), cache).open();
 				diskFiles.add(df);
 			}
 		} finally {
@@ -329,7 +331,7 @@ public class DiskStore implements Closeable {
 	}
 
 	public void addDiskFile(String fileName) throws IOException {
-		addDiskFile(new DiskFile(fileName).open());
+		addDiskFile(new DiskFile(fileName, cache).open());
 	}
 
 	public List<DiskFile> getDiskFilesSnapshot() {
@@ -360,18 +362,20 @@ public class DiskStore implements Closeable {
 	public void tryClearCompactedDiskFiles() throws IOException {
 		compactedDiskFilesLock.writeLock().lock();
 		try {
+			List<DiskFile> unusedDiskFiles = new ArrayList<>();
 			for (DiskFile df : compactedDiskFiles) {
 				if (df.getRefCount() != 0) {
 					continue;
 				}
 				df.close();
+				unusedDiskFiles.add(df);
 				File file = new File(df.getFileName());
 				File archiveFile = new File(df.getFileName() + FILE_NAME_ARCHIVE_SUFFIX);
 				if (!file.renameTo(archiveFile)) {
 					throw new IOException("Rename fail: " + archiveFile.getName());
 				}
 			}
-			compactedDiskFiles.removeIf(df -> df.getRefCount() == 0);
+			compactedDiskFiles.removeAll(unusedDiskFiles);
 		} finally {
 			compactedDiskFilesLock.writeLock().unlock();
 		}

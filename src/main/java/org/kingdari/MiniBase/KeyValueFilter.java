@@ -1,7 +1,5 @@
 package org.kingdari.MiniBase;
 
-import org.kingdari.MiniBase.DiskFile.BlockMeta;
-
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -37,7 +35,7 @@ public class KeyValueFilter {
 		return this;
 	}
 
-	public boolean isOk(KeyValue kv) {
+	public boolean isVisible(KeyValue kv) {
 		return version >= kv.getSequenceId();
 	}
 
