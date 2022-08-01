@@ -12,5 +12,6 @@
 # TODO
 1. WAL GC
 2. Block Storage: KV, KV, KV => KKKK, VVVV: Cache Friendly
-3. Region Server: KV -> Column Family; Row Transaction
-4. Distributed MiniBase: 6.824Raft as MetaCenter
+3. Zone Map, Not only bloom filter
+4. Region Server: KV -> Column Family; Row Transaction
+5. Distributed MiniBase: 6.824Raft as MetaCenter
